@@ -1,0 +1,59 @@
+---
+title: "Analisis del riesgo de renuncia con R"
+author: "Aldo Enrique Chong Valetin"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+En este documento se hace una demostracion de analisis de superviviencia en R. Trabajamos con la base de datos "Employee Turnover", disponible en https://www.kaggle.com/datasets/davinwijaya/employee-turnover. Esta base de datos tiene informacion sobre empleados de distintas industrias de Rusia y Ucrania. La base de datos contiene variables como Experiencia, Evento de renuncia, genero, edad, industria y algunas otras. Se tiene que el evento de interes es el evento de renuncia y el tiempo de superviviencia asociado son los años de experiencia del empleado. El dataset incluye 1129 observaciones.
+Damos un vistazo a la base de datos para familiarizarnos con ella. 
+
+```{r}
+#Cargamos los datos y la libreria que vamos a utilizar
+
+library(survival)
+data = read.csv("turnover.csv")
+
+#Vemos las primeras observaciones
+library(dplyr)
+head(data)
+```
+
+En particular hay una variable llamada greywage de particular interes. Para explicarla damos la siguiente definicion. Sea $A$ un trabajador. Decimos que $A$ tiene whitewage si y solo si $A$ recibe exactamente el pago que dice su contrato. Decimos que $A$ tiene greywage si y solo si $A$ no tiene whitewage. Asi, la variable greywage indica si el trabajador tiene salario whitewage o si tiene greywage. 
+
+Asi pues, surge la siguiente pregunta: ¿Un empleado tiene mas riesgo de renunciar dado que su salario es greywage? Procedemos a responder a esta pregunta. Para eso haremos la estimacion de la funcion de superviviencia de Kaplan - Meier. 
+
+```{r}
+
+#Inicializamos el objeto de supervivencia 
+surv_obj = Surv(data$stag, data$event)
+
+#Hacemos el ajuste Kaplan-Maier
+fit= survfit(surv_obj ~ data$greywage, conf.type = 'plain', type = 'kaplan-meier', conf.int = 0.95)
+
+#Hacemos la grafica.
+plot(fit, col = c(1,2), xlab = 'Tiempo', ylab = 'Probabilidad')
+title(main = 'Funcion de supervivencia por greywage')
+legend(x = 'topright', legend = c('grey', 'white'), fill = c(1,2))
+```
+
+Vemos que la curva de supervivencia asociada a la curva de whitewage es significativamente mayor que la curva de superviviencia asociada al greywage. De tal manera que sospechamos que las personas con greywage tienen mayor riesgo de renuncia. Para comprobarlo formalmente aplicamos la prueba de Log-Rank. 
+
+Recordemos que la prueba Log Rank tiene la siguiente prueba de hipotesis: $H_{0}: S_{1}(t) = S_{2}(t)$ y $H_{a}: S_{1}(t) \neq S_{2}(t)$. Es decir, la hipotesis nula es que las dos funciones de superviviencia son iguales. 
+
+
+```{r}
+#Aplicamos la prueba de Log-Rank
+survdiff(surv_obj ~ data$greywage , rho = 0, data = data)
+```
+
+Vemos que el p-value es menor que $0.05$ (de hecho es muy pequeño). De tal suerte que rechazamos la hipotesis nula y concluimos formalmente que las funciones de superviviencia son distintas. 
+
+Asi pues, podemos concluir el hecho de que un trabajador tenga greywage si aumenta su riesgo de renuncia. 
+
+
